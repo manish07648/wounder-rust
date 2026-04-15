@@ -1,15 +1,12 @@
 pipeline {
     agent any 
     
-    tools {
-        // Logs ke hisaab se exact registered tool types
-        'hudson.plugins.sonar.SonarRunnerInstallation' 'sonar-scanner'
-        'dependency-check' 'DP-Check'
-    }
+    // Yahan se tools {} block completely hata diya gaya hai
     
     environment {
+        // 'tool' command seedha background mein tumhara 'sonar-scanner' dhund legi
         SCANNER_HOME = tool 'sonar-scanner'
-        // TODO: Apna DockerHub username update karna
+        // TODO: Apna DockerHub username update karna mat bhoolna
         DOCKER_USER = "your_dockerhub_username" 
     }
     
@@ -32,6 +29,7 @@ pipeline {
         
         stage("OWASP Dependency Check") {
             steps {
+                // odcInstallation parameter automatically 'DP-Check' ko trigger kar dega
                 dependencyCheck additionalArguments: '--scan ./', odcInstallation: 'DP-Check'
             }
         }
