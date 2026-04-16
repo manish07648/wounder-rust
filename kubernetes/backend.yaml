@@ -18,7 +18,9 @@ spec:
     spec:
       containers:
         - name: backend
-        image: manish07648/ecommerce-frontend:v1.0
+          # Dhyan de: Maine image ka naam backend ke hisab se set kar diya hai. 
+          # Agar tumne DockerHub par kisi aur naam se backend push kiya hai, toh isko change kar lena.
+          image: manish07648/wanderlust-backend:v1
           ports:
             - containerPort: 8080
 ---
