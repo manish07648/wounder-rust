@@ -8,7 +8,7 @@ pipeline {
         // Har build ke sath ek naya tag banega (e.g., v15, v16)
         IMAGE_TAG = "v${env.BUILD_NUMBER}"
         
-        // Tera Naya Token wala Credential ID
+        // Tera Naya Token wala Credential ID (Docker Hub ke liye)
         CREDENTIALS_ID = "docker-hub-creds" 
     }
 
@@ -56,21 +56,34 @@ pipeline {
         stage("Deploy (Update K8s Manifests)") {
             steps {
                 echo "GitOps Deployment - YAML files update ho rahi hain ArgoCD ke liye!"
-                sh """
-                # K8s files mein purane image tag ko naye tag se replace karna
-                sed -i "s|image: ${DOCKER_USER}/wanderlust-frontend:.*|image: ${DOCKER_USER}/wanderlust-frontend:${IMAGE_TAG}|g" kubernetes/frontend.yaml
-                sed -i "s|image: ${DOCKER_USER}/wanderlust-backend:.*|image: ${DOCKER_USER}/wanderlust-backend:${IMAGE_TAG}|g" kubernetes/backend.yaml
                 
-                # GitHub par naya version push karna
-                git config user.email "jenkins@devops.com"
-                git config user.name "Jenkins Pipeline"
-                git add kubernetes/frontend.yaml kubernetes/backend.yaml
-                
-                # Smart Commit: Agar change hai toh commit karo, warna chup raho
-                git diff-index --quiet HEAD || git commit -m "Jenkins: Updated images to ${IMAGE_TAG}"
-                
-                git push origin main
-                """
+                // GitHub Token use karke Push karna
+                withCredentials([usernamePassword(
+                    credentialsId: "github-creds",
+                    usernameVariable: "GIT_USER",
+                    passwordVariable: "GIT_TOKEN"
+                )]) {
+                    sh """
+                    # K8s files mein purane image tag ko naye tag se replace karna
+                    sed -i "s|image: ${DOCKER_USER}/wanderlust-frontend:.*|image: ${DOCKER_USER}/wanderlust-frontend:${IMAGE_TAG}|g" kubernetes/frontend.yaml
+                    sed -i "s|image: ${DOCKER_USER}/wanderlust-backend:.*|image: ${DOCKER_USER}/wanderlust-backend:${IMAGE_TAG}|g" kubernetes/backend.yaml
+                    
+                    # Git config setup
+                    git config user.email "jenkins@devops.com"
+                    git config user.name "Jenkins Pipeline"
+                    
+                    # Jenkins ko batana ki push kahan aur kis token se karna hai
+                    git remote set-url origin https://${GIT_USER}:${GIT_TOKEN}@github.com/manish07648/wounder-rust.git
+                    
+                    git add kubernetes/frontend.yaml kubernetes/backend.yaml
+                    
+                    # Smart Commit: Agar change hai toh commit karo, warna chup raho
+                    git diff-index --quiet HEAD || git commit -m "Jenkins: Updated images to ${IMAGE_TAG}"
+                    
+                    # Final Push!
+                    git push origin main
+                    """
+                }
                 echo "Deployment Triggered! ArgoCD ab ise auto-sync kar lega."
             }
         }
