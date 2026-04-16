@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: manish07648/ecommerce-frontend:v1.0
+         image: manishmandal07/wanderlust-frontend:v17
           ports:
             - containerPort: 5173
 ---
