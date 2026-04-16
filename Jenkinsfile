@@ -20,11 +20,11 @@ pipeline {
             }
         }
 
-        // 🛡️ SECURITY STAGE 1: OWASP Dependency Check
+        // 🛡️ SECURITY STAGE 1: OWASP Dependency Check (WITH API KEY - SUPER FAST)
         stage('OWASP Dependency Check') {
             steps {
                 script {
-                    dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit', odcInstallation: 'owasp'
+                    dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit --nvdApiKey 0fdd9622-8b62-47d7-bd2c-b666dc3c4170', odcInstallation: 'owasp'
                 }
             }
         }
