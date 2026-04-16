@@ -2,8 +2,8 @@ pipeline {
     agent any
 
     environment {
-        // Tera Docker Hub Username
-        DOCKER_USER = "manish07648"
+        // Tera Asli Docker Hub Username
+        DOCKER_USER = "manishmandal07"
         
         // Har build ke sath ek naya tag banega (e.g., v15, v16)
         IMAGE_TAG = "v${env.BUILD_NUMBER}"
