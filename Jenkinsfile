@@ -20,7 +20,7 @@ pipeline {
             }
         }
 
-        // 🛡️ SECURITY STAGE 1: OWASP Dependency Check (WITH API KEY - SUPER FAST)
+        // 🛡️ SECURITY STAGE 1: OWASP Dependency Check (Fast with API Key)
         stage('OWASP Dependency Check') {
             steps {
                 script {
@@ -36,15 +36,18 @@ pipeline {
             }
         }
 
-        // 🛡️ SECURITY STAGE 3: SonarQube Analysis
+        // 🛡️ SECURITY STAGE 3: SonarQube Analysis (Fixed Tool Path)
         stage('SonarQube Analysis') {
             steps {
-                withSonarQubeEnv('sonar-server') { 
-                    sh '''
-                        sonar-scanner \
-                        -Dsonar.projectKey=wounder-rust \
-                        -Dsonar.sources=. 
-                    '''
+                script {
+                    // Ye line Jenkins se tool ka path uthayegi
+                    def scannerHome = tool 'sonar-scanner'
+                    
+                    withSonarQubeEnv('sonar-server') { 
+                        sh "${scannerHome}/bin/sonar-scanner \
+                            -Dsonar.projectKey=wounder-rust \
+                            -Dsonar.sources=. "
+                    }
                 }
             }
         }
@@ -52,10 +55,7 @@ pipeline {
         stage("Build Frontend & Backend") {
             steps {
                 echo "Dono images build ho rahi hain..."
-                // Frontend Image Build
                 sh "docker build -t ${DOCKER_USER}/wanderlust-frontend:${IMAGE_TAG} ./frontend"
-                
-                // Backend Image Build
                 sh "docker build -t ${DOCKER_USER}/wanderlust-backend:${IMAGE_TAG} ./backend"
             }
         }
@@ -63,18 +63,13 @@ pipeline {
         stage("Push to Docker Hub") {
             steps {
                 echo "Docker Hub par push in progress....."
-                
-                // Tera Naya Token use karke Login aur Push
                 withCredentials([usernamePassword(
                     credentialsId: "${CREDENTIALS_ID}",
                     usernameVariable: "HUB_USER",
                     passwordVariable: "HUB_PASS"
                 )]) {
                     sh '''
-                    # Secure tarike se token ke sath login
                     echo $HUB_PASS | docker login -u $HUB_USER --password-stdin
-                    
-                    # Dono images push karna
                     docker push ${HUB_USER}/wanderlust-frontend:${IMAGE_TAG}
                     docker push ${HUB_USER}/wanderlust-backend:${IMAGE_TAG}
                     '''
@@ -85,35 +80,25 @@ pipeline {
         stage("Deploy (Update K8s Manifests)") {
             steps {
                 echo "GitOps Deployment - YAML files update ho rahi hain ArgoCD ke liye!"
-                
-                // GitHub Token use karke Push karna
                 withCredentials([usernamePassword(
                     credentialsId: "github-creds",
                     usernameVariable: "GIT_USER",
                     passwordVariable: "GIT_TOKEN"
                 )]) {
                     sh """
-                    # K8s files mein purane image tag ko naye tag se replace karna
                     sed -i "s|image: ${DOCKER_USER}/wanderlust-frontend:.*|image: ${DOCKER_USER}/wanderlust-frontend:${IMAGE_TAG}|g" kubernetes/frontend.yaml
                     sed -i "s|image: ${DOCKER_USER}/wanderlust-backend:.*|image: ${DOCKER_USER}/wanderlust-backend:${IMAGE_TAG}|g" kubernetes/backend.yaml
                     
-                    # Git config setup
                     git config user.email "jenkins@devops.com"
                     git config user.name "Jenkins Pipeline"
                     
-                    # Jenkins ko batana ki push kahan aur kis token se karna hai
                     git remote set-url origin https://${GIT_USER}:${GIT_TOKEN}@github.com/manish07648/wounder-rust.git
                     
                     git add kubernetes/frontend.yaml kubernetes/backend.yaml
-                    
-                    # Smart Commit: Agar change hai toh commit karo, warna chup raho
                     git diff-index --quiet HEAD || git commit -m "Jenkins: Updated images to ${IMAGE_TAG}"
-                    
-                    # Final Push!
                     git push origin main
                     """
                 }
-                echo "Deployment Triggered! ArgoCD ab ise auto-sync kar lega."
             }
         }
     }
