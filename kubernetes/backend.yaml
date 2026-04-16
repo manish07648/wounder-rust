@@ -20,7 +20,7 @@ spec:
         - name: backend
           # Dhyan de: Maine image ka naam backend ke hisab se set kar diya hai. 
           # Agar tumne DockerHub par kisi aur naam se backend push kiya hai, toh isko change kar lena.
-          image: manish07648/wanderlust-backend:v1
+          image: manishmandal07/wanderlust-backend:v17
           ports:
             - containerPort: 8080
 ---
