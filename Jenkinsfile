@@ -20,6 +20,35 @@ pipeline {
             }
         }
 
+        // 🛡️ SECURITY STAGE 1: OWASP Dependency Check
+        stage('OWASP Dependency Check') {
+            steps {
+                script {
+                    dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit', odcInstallation: 'owasp'
+                }
+            }
+        }
+
+        // 🛡️ SECURITY STAGE 2: Trivy FS Scan
+        stage('Trivy FS Scan') {
+            steps {
+                sh 'trivy fs --format table -o trivy-fs-report.txt .'
+            }
+        }
+
+        // 🛡️ SECURITY STAGE 3: SonarQube Analysis
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('sonar-server') { 
+                    sh '''
+                        sonar-scanner \
+                        -Dsonar.projectKey=wounder-rust \
+                        -Dsonar.sources=. 
+                    '''
+                }
+            }
+        }
+
         stage("Build Frontend & Backend") {
             steps {
                 echo "Dono images build ho rahi hain..."
