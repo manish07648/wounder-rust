@@ -53,7 +53,7 @@ pipeline {
             }
         }
 
-       stage("Deploy (Update K8s Manifests)") {
+        stage("Deploy (Update K8s Manifests)") {
             steps {
                 echo "GitOps Deployment - YAML files update ho rahi hain ArgoCD ke liye!"
                 sh """
@@ -66,7 +66,7 @@ pipeline {
                 git config user.name "Jenkins Pipeline"
                 git add kubernetes/frontend.yaml kubernetes/backend.yaml
                 
-                # Smart Commit: Agar change hai toh commit karo, warna chup raho (|| true)
+                # Smart Commit: Agar change hai toh commit karo, warna chup raho
                 git diff-index --quiet HEAD || git commit -m "Jenkins: Updated images to ${IMAGE_TAG}"
                 
                 git push origin main
@@ -74,3 +74,5 @@ pipeline {
                 echo "Deployment Triggered! ArgoCD ab ise auto-sync kar lega."
             }
         }
+    }
+}
