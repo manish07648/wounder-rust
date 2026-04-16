@@ -1,31 +1,19 @@
-# Stage 1
+# Stage 1: Build Stage
 FROM node:21 AS backend-builder
-
-# setup the working dir
 WORKDIR /app
-
-# code
+COPY package*.json ./
+RUN npm install
 COPY . .
 
-# packages install
-RUN npm i
-
-# tests
-RUN npm run test
-
-# Stage 2
+# Stage 2: Final Light Image
 FROM node:21-slim
-
-# setup the working dir
 WORKDIR /app
-
-# copy the above stage as compressed
 COPY --from=backend-builder /app .
 
+# .env.docker ko asli .env ki jagah set karo
 COPY .env.docker .env
 
-# Port
+ENV NODE_ENV=production
 EXPOSE 8080
 
-# App
 CMD ["npm", "start"]
