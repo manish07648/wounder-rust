@@ -1,57 +1,74 @@
 pipeline {
-    agent any 
-    
-    // Yahan se tools {} block completely hata diya gaya hai
-    
+    agent any
+
     environment {
-        // 'tool' command seedha background mein tumhara 'sonar-scanner' dhund legi
-        SCANNER_HOME = tool 'sonar-scanner'
-        // TODO: Apna DockerHub username update karna mat bhoolna
-        DOCKER_USER = "your_dockerhub_username" 
+        // Tera Docker Hub Username
+        DOCKER_USER = "manish07648"
+        
+        // Har build ke sath ek naya tag banega (e.g., v15, v16)
+        IMAGE_TAG = "v${env.BUILD_NUMBER}"
+        
+        // Tera Naya Token wala Credential ID
+        CREDENTIALS_ID = "docker-hub-creds" 
     }
-    
-    parameters {
-        string(name: 'IMAGE_TAG', defaultValue: 'v1.0', description: 'Docker Image Tag')
-    }
-    
+
     stages {
-        stage("Workspace Cleanup") {
+        stage("Checkout Code") {
             steps {
-                cleanWs()
-            }
-        }
-        
-        stage('Git Checkout') {
-            steps {
-                git branch: 'main', url: 'https://github.com/manish07648/wounder-rust.git'
-            }
-        }
-        
-        stage("OWASP Dependency Check") {
-            steps {
-                // odcInstallation parameter automatically 'DP-Check' ko trigger kar dega
-                dependencyCheck additionalArguments: '--scan ./', odcInstallation: 'DP-Check'
-            }
-        }
-        
-        stage("Trivy FS Scan") {
-            steps {
-                sh "trivy fs . > trivy-report.txt"
+                echo "GitHub se code download ho raha hai..."
+                git branch: "main", url: "https://github.com/manish07648/wounder-rust.git"
             }
         }
 
-        stage("SonarQube Analysis") {
+        stage("Build Frontend & Backend") {
             steps {
-                withSonarQubeEnv('sonar-server') {
-                    sh "$SCANNER_HOME/bin/sonar-scanner -Dsonar.projectKey=ecommerce-app -Dsonar.projectName=ecommerce-app -Dsonar.sources=."
+                echo "Dono images build ho rahi hain..."
+                // Frontend Image Build
+                sh "docker build -t ${DOCKER_USER}/wanderlust-frontend:${IMAGE_TAG} ./frontend"
+                
+                // Backend Image Build
+                sh "docker build -t ${DOCKER_USER}/wanderlust-backend:${IMAGE_TAG} ./backend"
+            }
+        }
+
+        stage("Push to Docker Hub") {
+            steps {
+                echo "Docker Hub par push in progress....."
+                
+                // Tera Naya Token use karke Login aur Push
+                withCredentials([usernamePassword(
+                    credentialsId: "${CREDENTIALS_ID}",
+                    usernameVariable: "HUB_USER",
+                    passwordVariable: "HUB_PASS"
+                )]) {
+                    sh '''
+                    # Secure tarike se token ke sath login
+                    echo $HUB_PASS | docker login -u $HUB_USER --password-stdin
+                    
+                    # Dono images push karna
+                    docker push ${HUB_USER}/wanderlust-frontend:${IMAGE_TAG}
+                    docker push ${HUB_USER}/wanderlust-backend:${IMAGE_TAG}
+                    '''
                 }
             }
         }
-        
-        stage("Docker Build") {
+
+        stage("Deploy (Update K8s Manifests)") {
             steps {
-                sh "docker build -t ${DOCKER_USER}/ecommerce-backend:${params.IMAGE_TAG} ./backend"
-                sh "docker build -t ${DOCKER_USER}/ecommerce-frontend:${params.IMAGE_TAG} ./frontend"
+                echo "GitOps Deployment - YAML files update ho rahi hain ArgoCD ke liye!"
+                sh """
+                # K8s files mein purane image tag ko naye tag se replace karna
+                sed -i "s|image: ${DOCKER_USER}/wanderlust-frontend:.*|image: ${DOCKER_USER}/wanderlust-frontend:${IMAGE_TAG}|g" kubernetes/frontend.yaml
+                sed -i "s|image: ${DOCKER_USER}/wanderlust-backend:.*|image: ${DOCKER_USER}/wanderlust-backend:${IMAGE_TAG}|g" kubernetes/backend.yaml
+                
+                # GitHub par naya version push karna
+                git config user.email "jenkins@devops.com"
+                git config user.name "Jenkins Pipeline"
+                git add kubernetes/frontend.yaml kubernetes/backend.yaml
+                git commit -m "Jenkins: Updated images to ${IMAGE_TAG}"
+                
+                git push origin main
+                """
             }
         }
     }
